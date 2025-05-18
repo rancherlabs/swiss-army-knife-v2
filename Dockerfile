@@ -1,4 +1,4 @@
-FROM registry.suse.com/bci/bci-base:15.6
+FROM registry.suse.com/bci/bci-base:15.7
 
 # Install required packages and perform cleanup
 RUN zypper -n install --no-recommends \
