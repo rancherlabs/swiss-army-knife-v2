@@ -55,7 +55,7 @@ RUN zypper addrepo -G https://download.opensuse.org/repositories/network:utiliti
 # Copy the compiled binary from builder stage
 COPY --from=builder /app/echo-server /usr/local/bin/
 
-# Kubectl from k3s images
+# Download the stable kubectl binary
 RUN VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
     curl -L https://dl.k8s.io/release/$VERSION/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl && \
     chmod a+x /usr/local/bin/kubectl
