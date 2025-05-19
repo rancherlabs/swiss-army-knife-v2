@@ -1,4 +1,4 @@
-# Build stage
+# Build stage for Go application
 FROM golang:1.24-alpine AS builder
 
 # Set working directory for the build
@@ -44,15 +44,39 @@ RUN zypper -n install --no-recommends \
     tree \
     vim-small \
     wget \
-    bash-completion && \
+    bash-completion \
+    gcc \
+    gcc-c++ \
+    make \
+    automake \
+    autoconf \
+    gawk \
+    libtool && \
     zypper -n clean -a && \
     rm -rf /tmp/* /var/tmp/* /usr/share/doc/packages/*
 
-# Pull iperf binary from mlabbe/iperf
-COPY --from=mlabbe/iperf /usr/bin/iperf /usr/local/bin/iperf
+# Download and build iperf from source
+RUN cd /tmp && \
+    wget https://sourceforge.net/projects/iperf2/files/iperf-2.0.13.tar.gz/download -O iperf-2.0.13.tar.gz && \
+    tar -xzf iperf-2.0.13.tar.gz && \
+    cd iperf-2.0.13 && \
+    ./configure && \
+    make && \
+    make install && \
+    cd .. && \
+    rm -rf iperf-2.0.13*
 
-# Pull iperf3 binary from mlabbe/iperf3
-COPY --from=mlabbe/iperf3 /usr/bin/iperf3 /usr/local/bin/iperf3
+# Download and build iperf3 from source
+RUN cd /tmp && \
+    wget https://downloads.es.net/pub/iperf/iperf-3.13.tar.gz && \
+    tar -xzf iperf-3.13.tar.gz && \
+    cd iperf-3.13 && \
+    ./configure && \
+    make && \
+    make install && \
+    ldconfig && \
+    cd .. && \
+    rm -rf iperf-3.13*
 
 # Pull mtr binary from jeschu/mtr
 COPY --from=jeschu/mtr /usr/sbin/mtr /usr/local/bin/mtr
