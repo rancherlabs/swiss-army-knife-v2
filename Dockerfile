@@ -13,25 +13,20 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o ech
 # Final stage
 FROM registry.suse.com/bci/bci-base:15.7
 
-# Install required packages and perform cleanup
-RUN zypper addrepo -G https://download.opensuse.org/repositories/network:utilities/SLE_15_SP5/network:utilities.repo && \
-    zypper -n install --no-recommends \
+# Install required packages from standard repositories and perform cleanup
+RUN zypper -n install --no-recommends \
     curl \
     ca-certificates \
     openssl \
-    conntrack-tools \
     ethtool \
     iproute2 \
     ipset \
     iptables \
     iputils \
-    mtr \
-    iperf \
     jq \
     kmod \
     less \
     net-tools \
-    netcat-openbsd \
     bind-utils \
     psmisc \
     socat \
@@ -52,6 +47,21 @@ RUN zypper addrepo -G https://download.opensuse.org/repositories/network:utiliti
     zypper -n clean -a && \
     rm -rf /tmp/* /var/tmp/* /usr/share/doc/packages/*
 
+# Install additional networking tools that may require alternative packages
+RUN zypper -n install --no-recommends \
+    ncat \
+    || zypper -n install --no-recommends netcat \
+    || echo "Warning: netcat not available, using built-in networking tools"
+
+# Install conntrack if available (may not be in all SUSE repositories)
+RUN zypper -n install --no-recommends conntrack \
+    || echo "Warning: conntrack not available"
+
+# Install mtr and iperf if available 
+RUN zypper -n install --no-recommends mtr iperf3 \
+    || zypper -n install --no-recommends mtr iperf \
+    || echo "Warning: mtr/iperf not available"
+
 # Copy the compiled binary from builder stage
 COPY --from=builder /app/echo-server /usr/local/bin/
 
@@ -63,8 +73,11 @@ RUN VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
 # Set working directory
 WORKDIR /root
 
+# Create .kube directory
+RUN mkdir /root/.kube
+
 # Setup kubectl autocompletion, aliases, and profiles
 RUN kubectl completion bash > /etc/bash_completion.d/kubectl
 
-# Default command to run the main application
-CMD ["/usr/local/bin/echo-server"]
+# Default command
+CMD ["bash"]
