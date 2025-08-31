@@ -75,7 +75,7 @@ The `swiss-army-knife` image includes the following tools:
 - `tcpdump`
 
 ### Kubernetes Tools
-- `kubectl` (multiple versions included from K3s images: `1.30`, `1.31`, `1.32`, `1.33`)
+- `kubectl` the current stable version is included at the time of image builds
 
 ---
 

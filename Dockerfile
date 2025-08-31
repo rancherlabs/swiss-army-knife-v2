@@ -14,7 +14,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o ech
 FROM registry.suse.com/bci/bci-base:15.7
 
 # Install required packages and perform cleanup
-RUN zypper -n install --no-recommends \
+RUN zypper addrepo -G https://download.opensuse.org/repositories/network:utilities/SLE_15_SP5/network:utilities.repo && \
+    zypper -n install --no-recommends \
     curl \
     ca-certificates \
     openssl \
@@ -24,6 +25,8 @@ RUN zypper -n install --no-recommends \
     ipset \
     iptables \
     iputils \
+    mtr \
+    iperf \
     jq \
     kmod \
     less \
@@ -52,34 +55,16 @@ RUN zypper -n install --no-recommends \
 # Copy the compiled binary from builder stage
 COPY --from=builder /app/echo-server /usr/local/bin/
 
-# Kubectl from k3s images - using latest patch versions for security fixes
-COPY --from=rancher/k3s:v1.30.14-k3s2 \
-    /bin/kubectl \
-    /usr/local/bin/kubectl-1.30
-
-COPY --from=rancher/k3s:v1.31.12-k3s1 \
-    /bin/kubectl \
-    /usr/local/bin/kubectl-1.31
-
-COPY --from=rancher/k3s:v1.32.8-k3s1 \
-    /bin/kubectl \
-    /usr/local/bin/kubectl-1.32
-
-COPY --from=rancher/k3s:v1.33.4-k3s1 \
-    /bin/kubectl \
-    /usr/local/bin/kubectl-1.33
-
-## Create a symbolic link to the latest kubectl version
-RUN ln -s /usr/local/bin/kubectl-1.33 /usr/local/bin/kubectl
+# Download the stable kubectl binary
+RUN VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
+    curl -L https://dl.k8s.io/release/$VERSION/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl && \
+    chmod a+x /usr/local/bin/kubectl
 
 # Set working directory
 WORKDIR /root
 
-# Create .kube directory
-RUN mkdir /root/.kube
-
 # Setup kubectl autocompletion, aliases, and profiles
 RUN kubectl completion bash > /etc/bash_completion.d/kubectl
 
-# Default command
-CMD ["bash"]
+# Default command to run the main application
+CMD ["/usr/local/bin/echo-server"]
