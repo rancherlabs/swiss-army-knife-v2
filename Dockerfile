@@ -80,4 +80,4 @@ RUN mkdir /root/.kube
 RUN kubectl completion bash > /etc/bash_completion.d/kubectl
 
 # Default command
-CMD ["bash"]
+CMD ["/usr/local/bin/echo-server"]
