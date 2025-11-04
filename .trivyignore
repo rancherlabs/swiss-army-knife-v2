@@ -1,15 +1,27 @@
-# Ignore remaining vulnerabilities in kubectl binaries from k3s images
-# These are third-party binaries from upstream k3s releases
-# Updated to latest k3s versions: 1.30.14-k3s2, 1.31.12-k3s1, 1.32.8-k3s1, 1.33.4-k3s1
+# Trivy Ignore File for swiss-army-knife-v2
+# This file contains CVEs and security advisories that are accepted risks for this container image
 
-# Remaining vulnerabilities in kubectl binaries (significantly reduced from previous versions)
-# These are in Go dependencies that we don't control in the upstream k3s images
+# =============================================================================
+# kubectl Binary Vulnerabilities
+# =============================================================================
+# Using upstream kubectl stable version from dl.k8s.io/release/stable.txt
+# These are Go dependencies in kubectl that we don't control
 
-# Common across multiple kubectl versions:
+# Common kubectl/Go library vulnerabilities:
 CVE-2025-47907  # database/sql: Postgres Scan Race Condition (stdlib)
-CVE-2025-49140  # Pion Interceptor's improper RTP padding handling 
+CVE-2025-49140  # Pion Interceptor's improper RTP padding handling
 CVE-2024-45337  # golang.org/x/crypto/ssh authorization bypass (CRITICAL - in older versions)
 CVE-2025-22869  # golang.org/x/crypto/ssh: DoS in Key Exchange
 CVE-2024-32148  # golang.org/x/net/http2: potential Denial of Service
 CVE-2025-22865  # golang.org/x/net: DoS in HTTP/2 server
 CVE-2023-47108  # opentelemetry-go-contrib: DoS vulnerability in otelgrpc
+
+# =============================================================================
+# SUSE Base Image (BCI 15.7) Package Vulnerabilities
+# =============================================================================
+# Note: Most OS vulnerabilities are now fixed via `zypper update` in Dockerfile
+# Only remaining vulnerability that requires ignoring:
+
+# BIND utilities (DNS tools - used for debugging only)
+# Waiting for bind 9.20.15 to be available in SUSE repositories
+SUSE-SU-2025:3903-1  # bind-utils: Security update for bind (HIGH)
