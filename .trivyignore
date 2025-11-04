@@ -16,6 +16,15 @@ CVE-2024-32148  # golang.org/x/net/http2: potential Denial of Service
 CVE-2025-22865  # golang.org/x/net: DoS in HTTP/2 server
 CVE-2023-47108  # opentelemetry-go-contrib: DoS vulnerability in otelgrpc
 
+# Go stdlib vulnerabilities in kubectl (requires Go 1.24.8+ or 1.25.2+)
+# No patched kubectl versions available yet - waiting for Kubernetes patch releases
+CVE-2025-47912  # stdlib: net/url insufficient validation of IPv6 addresses
+CVE-2025-58183  # stdlib: archive/tar resource exhaustion via sparse entries
+CVE-2025-58186  # stdlib: net/http excessive header count DoS
+CVE-2025-58187  # stdlib: crypto/x509 name constraint checking performance issue
+CVE-2025-58188  # stdlib: crypto/x509 DSA public key validation DoS
+CVE-2025-61724  # stdlib: net/textproto response construction issue
+
 # =============================================================================
 # SUSE Base Image (BCI 15.7) Package Vulnerabilities
 # =============================================================================
