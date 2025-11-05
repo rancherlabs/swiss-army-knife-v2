@@ -38,3 +38,5 @@ jobs:
           prime-registry: ${{ env.PRIME_REGISTRY }}
           prime-username: ${{ env.PRIME_REGISTRY_USERNAME }}
           prime-password: ${{ env.PRIME_REGISTRY_PASSWORD }}
+        env:
+          LANDLOCK_MODE: DISABLED
