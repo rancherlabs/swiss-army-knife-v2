@@ -16,6 +16,11 @@ FROM registry.suse.com/bci/bci-base:15.7
 # Use buildx automatic platform args
 ARG TARGETARCH
 
+# Update all packages to latest versions to fix known vulnerabilities
+RUN zypper -n refresh && \
+    zypper -n update -y && \
+    zypper -n clean -a
+
 # Install required packages from standard repositories and perform cleanup
 RUN zypper -n install --no-recommends \
     curl \
