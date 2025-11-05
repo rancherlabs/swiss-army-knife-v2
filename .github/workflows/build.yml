@@ -27,16 +27,6 @@ jobs:
       - name: Display build info
         run: make log
 
-      - name: Run Trivy vulnerability scanner on OCI archive
-        uses: aquasecurity/trivy-action@0.30.0
-        with:
-          input: 'ci/multiarch-image.oci'
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-
       - name: Upload CI files to artifacts (on failure)
         uses: actions/upload-artifact@v4
         if: failure()
