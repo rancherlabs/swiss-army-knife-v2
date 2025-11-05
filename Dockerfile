@@ -13,6 +13,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o ech
 # Final stage
 FROM registry.suse.com/bci/bci-base:15.7
 
+# Use buildx automatic platform args
+ARG TARGETARCH
+
 # Update all packages to latest versions to fix known vulnerabilities
 RUN zypper -n refresh && \
     zypper -n update -y && \
@@ -70,9 +73,9 @@ RUN zypper -n install --no-recommends mtr iperf3 \
 # Copy the compiled binary from builder stage
 COPY --from=builder /app/echo-server /usr/local/bin/
 
-# Download the stable kubectl binary
+# Download the stable kubectl binary for the correct architecture
 RUN VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
-    curl -L https://dl.k8s.io/release/$VERSION/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl && \
+    curl -L https://dl.k8s.io/release/$VERSION/bin/linux/${TARGETARCH}/kubectl -o /usr/local/bin/kubectl && \
     chmod a+x /usr/local/bin/kubectl
 
 # Set working directory
