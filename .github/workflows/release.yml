@@ -44,7 +44,9 @@ jobs:
           file: Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ env.PUBLIC_REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.ref_name }}
+          tags: |
+            ${{ env.PUBLIC_REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.ref_name }}
+            ${{ env.PUBLIC_REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE }}:latest
           build-args: |
             KUBECTL_VERSION=v1.36.0
             KUBECTL_SUM_amd64=123d8c8844f46b1244c547fffb3c17180c0c26dac9890589fe7e67763298748e
