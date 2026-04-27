@@ -1,5 +1,5 @@
 # Build stage for Go application
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24-alpine@sha256:8bee1901f1e530bfb4a7850aa7a479d17ae3a18beb6e09064ed54cfd245b7191 AS builder
 
 # Set working directory for the build
 WORKDIR /app
@@ -15,6 +15,11 @@ FROM registry.suse.com/bci/bci-base:15.7
 
 # Use buildx automatic platform args
 ARG TARGETARCH
+
+# Kubectl dependency versions and checksums (set via --build-arg from Makefile/CI)
+ARG KUBECTL_VERSION
+ARG KUBECTL_SUM_amd64
+ARG KUBECTL_SUM_arm64
 
 # Update all packages to latest versions to fix known vulnerabilities
 RUN zypper -n refresh && \
@@ -73,10 +78,18 @@ RUN zypper -n install --no-recommends mtr iperf3 \
 # Copy the compiled binary from builder stage
 COPY --from=builder /app/echo-server /usr/local/bin/
 
-# Download the stable kubectl binary for the correct architecture
-RUN VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
-    curl -L https://dl.k8s.io/release/$VERSION/bin/linux/${TARGETARCH}/kubectl -o /usr/local/bin/kubectl && \
-    chmod a+x /usr/local/bin/kubectl
+# Download kubectl and verify checksum
+ADD --chown=root:root --chmod=0755 \
+    "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" \
+    /usr/local/bin/kubectl
+
+ENV KUBECTL_SUM_amd64=${KUBECTL_SUM_amd64}
+ENV KUBECTL_SUM_arm64=${KUBECTL_SUM_arm64}
+RUN if [ "${TARGETARCH}" = "amd64" ]; then \
+        echo "${KUBECTL_SUM_amd64}  /usr/local/bin/kubectl" | sha256sum -c -; \
+    else \
+        echo "${KUBECTL_SUM_arm64}  /usr/local/bin/kubectl" | sha256sum -c -; \
+    fi
 
 # Set working directory
 WORKDIR /root
