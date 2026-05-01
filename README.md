@@ -15,7 +15,7 @@ This image also includes a very small web application for testing/debugging purp
 
 ```bash
 # Run and attach to the network namespace of the container to debug
-docker run --name swiss-army-knife --net=container:${CONTAINER_ID_TO_DEBUG} -itd ranchersupport/swiss-army-knife-v2
+docker run --name swiss-army-knife --net=container:${CONTAINER_ID_TO_DEBUG} -itd rancherlabs/swiss-army-knife
 
 # Exec into the tools container
 docker exec -it swiss-army-knife bash
@@ -34,7 +34,7 @@ TARGET_CONTAINER_PID=$(crictl inspect --output go-template --template '{{.info.p
 # Run swiss-army-knife and attach to the target container's network namespace
 ctr run --rm --privileged \
     --mount type=bind,src=/proc/${TARGET_CONTAINER_PID}/ns/net,dst=/proc/self/ns/net,options=rbind:ro \
-    ranchersupport/swiss-army-knife-v2 swiss-army-knife bash
+    rancherlabs/swiss-army-knife swiss-army-knife bash
 ```
 
 ---
@@ -76,6 +76,9 @@ The `swiss-army-knife` image includes the following tools:
 
 ### Kubernetes Tools
 - `kubectl` the current stable version is included at the time of image builds
+
+### Test webserver
+The image runs an "echo-server" as the entrypoint on port 80/TCP for testing use cases. Any requests will responds with the headers and body send in the request.
 
 ---
 
