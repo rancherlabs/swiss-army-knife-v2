@@ -79,17 +79,12 @@ RUN zypper -n install --no-recommends mtr iperf3 \
 COPY --from=builder /app/echo-server /usr/local/bin/
 
 # Download kubectl and verify checksum
-ADD --chown=root:root --chmod=0755 \
-    "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" \
-    /usr/local/bin/kubectl
-
-ENV KUBECTL_SUM_amd64=${KUBECTL_SUM_amd64}
-ENV KUBECTL_SUM_arm64=${KUBECTL_SUM_arm64}
-RUN if [ "${TARGETARCH}" = "amd64" ]; then \
-        echo "${KUBECTL_SUM_amd64}  /usr/local/bin/kubectl" | sha256sum -c -; \
-    else \
-        echo "${KUBECTL_SUM_arm64}  /usr/local/bin/kubectl" | sha256sum -c -; \
-    fi
+RUN KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
+    curl -sLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
+    curl -sLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl.sha256" && \
+    echo "$(cat kubectl.sha256) kubectl" | sha256sum --check && \
+    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
+    rm kubectl*
 
 # Set working directory
 WORKDIR /root
@@ -99,6 +94,11 @@ RUN mkdir /root/.kube
 
 # Setup kubectl autocompletion, aliases, and profiles
 RUN kubectl completion bash > /etc/bash_completion.d/kubectl
+
+# Add logs collector script
+ADD --chown=root:root --chmod=0755 \
+    https://raw.githubusercontent.com/rancherlabs/support-tools/refs/heads/master/collection/rancher/v2.x/logs-collector/rancher2_logs_collector.sh \
+    /usr/local/bin/rancher2_logs_collector.sh
 
 # Default command
 CMD ["/usr/local/bin/echo-server"]
