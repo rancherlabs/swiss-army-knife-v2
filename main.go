@@ -77,7 +77,7 @@ func getEnv(key, defaultVal string) string {
 
 func main() {
     http.HandleFunc("/", echoHandler)
-    port := "8080"
+    port := "80"
     fmt.Printf("Starting server on port %s...\n", port)
     if err := http.ListenAndServe(":"+port, nil); err != nil {
         fmt.Fprintf(os.Stderr, "Failed to start server: %v\n", err)
