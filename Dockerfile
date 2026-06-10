@@ -23,7 +23,7 @@ ARG KUBECTL_SUM_arm64
 
 # Update all packages to latest versions to fix known vulnerabilities
 RUN source /etc/os-release && \
-    zypper addrepo https://download.opensuse.org/repositories/network:utilities/${VERSION_ID}/network:utilities.repo && \
+    zypper addrepo --refresh http://download.opensuse.org/distribution/leap/${VERSION_ID}/repo/oss/ leap-oss && \
     zypper -n --gpg-auto-import-keys refresh && \
     zypper -n update -y && \
     zypper -n install --no-recommends \
