@@ -16,11 +16,6 @@ FROM registry.suse.com/bci/bci-base:15.6
 # Use buildx automatic platform args
 ARG TARGETARCH
 
-# Kubectl dependency versions and checksums (set via --build-arg from Makefile/CI)
-ARG KUBECTL_VERSION
-ARG KUBECTL_SUM_amd64
-ARG KUBECTL_SUM_arm64
-
 # Update all packages to latest versions to fix known vulnerabilities
 RUN source /etc/os-release && \
     zypper addrepo --refresh http://download.opensuse.org/distribution/leap/${VERSION_ID}/repo/oss/ leap-oss && \
@@ -64,13 +59,15 @@ RUN source /etc/os-release && \
 # Copy the compiled binary from builder stage
 COPY --from=builder /app/echo-server /usr/local/bin/
 
-# Download kubectl and verify checksum
-RUN KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
-    curl -sLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
-    curl -sLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl.sha256" && \
-    echo "$(cat kubectl.sha256) kubectl" | sha256sum --check && \
+# Download kubectl
+ARG KUBECTL_VERSION
+ARG KUBECTL_SUM_amd64
+ARG KUBECTL_SUM_arm64
+RUN curl -sLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
+    if [ "${TARGETARCH}" = "amd64" ]; then echo "${KUBECTL_SUM_amd64}  kubectl" | sha256sum -c -; \
+    elif [ "${TARGETARCH}" = "arm64" ]; then echo "${KUBECTL_SUM_arm64}  kubectl" | sha256sum -c -; fi && \
     install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
-    rm kubectl*
+    rm kubectl
 
 # Set working directory
 WORKDIR /root
