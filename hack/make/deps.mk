@@ -1,6 +1,5 @@
-# renovate-local: kubectl-amd64
+
+# renovate: datasource=github-releases depName=kubernetes/kubernetes
 KUBECTL_VERSION := v1.36.0
-# renovate-local: kubectl-arm64=v1.36.0
-KUBECTL_SUM_arm64 := 9f9d9c44a7b5264515ac9da5991584e2395bd50662e651132337e7b4d0c56f8f
-# renovate-local: kubectl-amd64=v1.36.0
-KUBECTL_SUM_amd64 := 123d8c8844f46b1244c547fffb3c17180c0c26dac9890589fe7e67763298748e
+KUBECTL_SUM_arm64 := 9831518f80bb8b3df9bb5e96f01fc6ebec854b7c1abf8da01ee7039a515ce402
+KUBECTL_SUM_amd64 := ecd60c07e296b010ab2e105e49bc98165d3ec879b69107ccfa4c034293f774b9
