@@ -11,7 +11,7 @@ COPY main.go .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o echo-server main.go
 
 # Final stage
-FROM registry.suse.com/bci/bci-base:15.6
+FROM registry.suse.com/bci/bci-base:15.7
 
 # Use buildx automatic platform args
 ARG TARGETARCH
@@ -23,7 +23,6 @@ ARG KUBECTL_SUM_arm64
 
 # Update all packages to latest versions to fix known vulnerabilities
 RUN source /etc/os-release && \
-    zypper addrepo --refresh http://download.opensuse.org/distribution/leap/${VERSION_ID}/repo/oss/ leap-oss && \
     zypper -n --gpg-auto-import-keys refresh && \
     zypper -n update -y && \
     zypper -n install --no-recommends \
@@ -54,8 +53,6 @@ RUN source /etc/os-release && \
         sysstat \
         iotop \
         nmap \
-        mtr \
-        iperf \
         netcat-openbsd \
         conntrack-tools && \
     zypper -n clean -a && \
