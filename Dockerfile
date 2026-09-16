@@ -11,7 +11,7 @@ COPY main.go .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o echo-server main.go
 
 # Final stage
-FROM registry.suse.com/bci/bci-base:15.6
+FROM registry.suse.com/bci/bci-base:16.0
 
 # Use buildx automatic platform args
 ARG TARGETARCH
