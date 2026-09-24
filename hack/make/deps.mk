@@ -1,6 +1,6 @@
 # renovate-local: kubectl-amd64
-KUBECTL_VERSION := v1.36.0
-# renovate-local: kubectl-arm64=v1.36.0
-KUBECTL_SUM_arm64 := 9f9d9c44a7b5264515ac9da5991584e2395bd50662e651132337e7b4d0c56f8f
-# renovate-local: kubectl-amd64=v1.36.0
-KUBECTL_SUM_amd64 := 123d8c8844f46b1244c547fffb3c17180c0c26dac9890589fe7e67763298748e
+KUBECTL_VERSION := v1.37.1
+# renovate-local: kubectl-arm64=v1.37.1
+KUBECTL_SUM_arm64 := ff749f4b78d9c4f1ec87307df9b50119ed819e2094aa9810cb9acffc3286c8c7
+# renovate-local: kubectl-amd64=v1.37.1
+KUBECTL_SUM_amd64 := 65691ff77eb6fa44c908b77a1082c9f092c3b9733b5cefabec0d1104890e21a8
