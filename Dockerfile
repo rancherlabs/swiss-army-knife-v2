@@ -10,8 +10,44 @@ COPY main.go .
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o echo-server main.go
 
+# Build stage for network tools that are not shipped in the BCI
+# repository. Building them from pinned upstream releases keeps the runtime
+# image free of third-party repositories.
+FROM registry.suse.com/bci/bci-base:15.7 AS nettools
+
+ARG MTR_VERSION=0.96
+ARG MTR_SHA256=ffd19a9f8d5f616c1ea2f0da9fbf9d1239bcecdf5a68912e831966d20929037a
+ARG IPERF_VERSION=3.22
+ARG IPERF_SHA256=1c0d0fb02c52626111d6e132db80edfbf27bbaff8bd9245df2a371dcb0b35a92
+
+RUN set -eux; \
+    zypper -n install --no-recommends \
+        curl \
+        gawk \
+        gcc \
+        make \
+        ncurses-devel \
+        libcap-devel; \
+    mkdir -p /out; \
+    curl -fsSL "https://www.bitwizard.nl/mtr/files/mtr-${MTR_VERSION}.tar.gz" -o /tmp/mtr.tar.gz; \
+    echo "${MTR_SHA256}  /tmp/mtr.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/mtr.tar.gz -C /tmp; \
+    cd "/tmp/mtr-${MTR_VERSION}"; \
+    ./configure --prefix=/usr --without-jansson --without-gtk; \
+    make -j"$(nproc)"; \
+    make install DESTDIR=/out; \
+    curl -fsSL "https://downloads.es.net/pub/iperf/iperf-${IPERF_VERSION}.tar.gz" -o /tmp/iperf.tar.gz; \
+    echo "${IPERF_SHA256}  /tmp/iperf.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/iperf.tar.gz -C /tmp; \
+    cd "/tmp/iperf-${IPERF_VERSION}"; \
+    ./configure --prefix=/usr --disable-shared; \
+    make -j"$(nproc)"; \
+    make install DESTDIR=/out; \
+    zypper -n clean -a; \
+    rm -rf /tmp/* /var/cache/zypp/*
+
 # Final stage
-FROM registry.suse.com/bci/bci-base:15.6
+FROM registry.suse.com/bci/bci-base:15.7
 
 # Use buildx automatic platform args
 ARG TARGETARCH
@@ -21,11 +57,10 @@ ARG KUBECTL_VERSION
 ARG KUBECTL_SUM_amd64
 ARG KUBECTL_SUM_arm64
 
-# Update all packages to latest versions to fix known vulnerabilities
-RUN source /etc/os-release && \
-    zypper addrepo --refresh http://download.opensuse.org/distribution/leap/${VERSION_ID}/repo/oss/ leap-oss && \
-    zypper -n --gpg-auto-import-keys refresh && \
-    zypper -n update -y && \
+# Update all packages to latest versions to fix known vulnerabilities.
+# Everything comes from the SLE_BCI repository that ships with the image. Its
+# URL is derived from the base image version, so no extra repository is needed.
+RUN zypper -n update -y && \
     zypper -n install --no-recommends \
         curl \
         ca-certificates \
@@ -54,15 +89,25 @@ RUN source /etc/os-release && \
         sysstat \
         iotop \
         nmap \
-        mtr \
-        iperf \
         netcat-openbsd \
         conntrack-tools && \
     zypper -n clean -a && \
-    rm -rf /tmp/* /var/tmp/* /usr/share/doc/packages/*
+    rm -rf /tmp/* /var/tmp/* /var/cache/zypp/* /usr/share/doc/packages/*
 
 # Copy the compiled binary from builder stage
 COPY --from=builder /app/echo-server /usr/local/bin/
+
+# Copy the network tools built from source (not available in SLE-BCI)
+COPY --from=nettools /out/usr/sbin/mtr /usr/sbin/mtr
+COPY --from=nettools /out/usr/sbin/mtr-packet /usr/sbin/mtr-packet
+COPY --from=nettools /out/usr/bin/iperf3 /usr/bin/iperf3
+COPY --from=nettools /out/usr/share/bash-completion/completions/mtr /usr/share/bash-completion/completions/mtr
+
+# Fail the build early if a package rename or repository change drops a tool
+RUN set -eux; \
+    for bin in curl jq ip ss tcpdump nmap socat strace tree vim lsof mtr mtr-packet iperf3; do \
+        command -v "${bin}" >/dev/null || { echo "missing required tool: ${bin}" >&2; exit 1; }; \
+    done
 
 # Download kubectl and verify checksum
 RUN KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
