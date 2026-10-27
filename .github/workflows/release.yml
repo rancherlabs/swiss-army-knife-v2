@@ -1,6 +1,19 @@
+name: Release
+
 on:
+  push:
+    tags:
+      - 'v*'
   release:
     types: [published]
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   PUBLIC_REGISTRY: docker.io
@@ -8,16 +21,74 @@ env:
   IMAGE: swiss-army-knife
 
 jobs:
-  push-multiarch:
-    permissions:
-      contents: read
-      id-token: write
+  # Phase 1: when a v* tag is pushed, build/push the versioned image and create
+  # a Draft release so the image can be tested before the release goes out.
+  # Release candidates are GitHub-only (no registry push).
+  build-and-draft:
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - name: Check out code
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          fetch-depth: 0
 
-      - name: "Read secrets"
+      - name: Read secrets
+        if: ${{ !contains(github.ref_name, '-rc') }}
+        uses: rancher-eio/read-vault-secrets@7282bf97898cd1c16c89f837e0bb442e6d384c89  # @main
+        with:
+          secrets: |
+            secret/data/github/repo/${{ github.repository }}/dockerhub/rancher/credentials username | DOCKER_USERNAME ;
+            secret/data/github/repo/${{ github.repository }}/dockerhub/rancher/credentials password | DOCKER_PASSWORD
+
+      # Build and push the versioned, immutable image tag. The publish-image
+      # action handles registry login, buildx setup and the multi-arch push.
+      - name: Push versioned image to Docker Hub
+        if: ${{ !contains(github.ref_name, '-rc') }}
+        uses: rancher/ecm-distro-tools/actions/publish-image@aa63973420722265b20b4b2dd71c8a737d7494e1  # v0.78.1
+        with:
+          image: ${{ env.IMAGE }}
+          tag: ${{ github.ref_name }}
+          platforms: linux/amd64,linux/arm64
+          push-to-public: true
+          public-registry: ${{ env.PUBLIC_REGISTRY }}
+          public-repo: ${{ env.REPO }}
+          public-username: ${{ env.DOCKER_USERNAME }}
+          public-password: ${{ env.DOCKER_PASSWORD }}
+          make-target: push-image
+          push-to-prime: false
+
+      # Create a Draft release. Publishing (un-drafting) it in the UI is the
+      # manual gate; it triggers the point-latest job below.
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == *-rc* ]]; then
+            PRERELEASE="--prerelease"
+          else
+            PRERELEASE=""
+          fi
+          gh release create "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --draft \
+            --generate-notes \
+            ${PRERELEASE}
+
+  # Phase 2: when the draft release is manually published, re-point :latest at
+  # the already-pushed versioned manifest (no rebuild, so :latest shares the
+  # exact digest of the version tag that was just tested).
+  point-latest:
+    if: ${{ github.event_name == 'release' && !github.event.release.prerelease && !contains(github.event.release.tag_name, '-rc') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Read secrets
         uses: rancher-eio/read-vault-secrets@7282bf97898cd1c16c89f837e0bb442e6d384c89  # @main
         with:
           secrets: |
@@ -31,19 +102,10 @@ jobs:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ env.DOCKER_PASSWORD }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130  # v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3
-
-      - name: Build and push to Docker Hub
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8  # v6
-        with:
-          context: .
-          file: Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            ${{ env.PUBLIC_REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE }}:${{ github.ref_name }}
-            ${{ env.PUBLIC_REGISTRY }}/${{ env.REPO }}/${{ env.IMAGE }}:latest
+      - name: Point :latest at this release
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          docker buildx imagetools create \
+            --tag "${PUBLIC_REGISTRY}/${REPO}/${IMAGE}:latest" \
+            "${PUBLIC_REGISTRY}/${REPO}/${IMAGE}:${TAG_NAME}"
