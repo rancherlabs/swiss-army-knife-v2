@@ -41,7 +41,8 @@ ctr run --rm --privileged \
 
 ## Included Tools
 
-The `swiss-army-knife` image includes the following tools:
+The `swiss-army-knife` image includes the following tools (plus standard
+utilities from the SLE BCI base image):
 
 ### Networking
 - `tcpdump`
@@ -49,15 +50,17 @@ The `swiss-army-knife` image includes the following tools:
 - `telnet`
 - `netcat-openbsd`
 - `ping` (via `iputils`)
-- `dig` (via `bind-utils`)
-- `nslookup` (via `bind-utils`)
+- `dig` / `nslookup` (via `bind-utils`)
 - `ifconfig` (via `net-tools`)
 - `ethtool`
 - `iptables`
 - `ipset`
-- `iproute2`
+- `iproute2` (`ip`, `ss`)
 - `conntrack-tools`
 - `socat`
+- `mtr` / `mtr-packet`
+- `iperf3`
+- `nmap`
 
 ### File Management
 - `curl`
@@ -68,17 +71,25 @@ The `swiss-army-knife` image includes the following tools:
 - `jq`
 
 ### System Utilities
-- `kmod`
-- `psmisc` (e.g., `killall`)
-- `openssl`
 - `ca-certificates`
-- `tcpdump`
+- `psmisc` (e.g., `killall`)
+- `procps`
+- `lsof`
+- `strace`
+- `sysstat`
+- `iotop`
+- `gawk`
+- `bash-completion`
 
 ### Kubernetes Tools
-- `kubectl` the current stable version is included at the time of image builds
+- `kubectl` — pinned to the version in `hack/make/deps.mk` (currently v1.37.1),
+  updated via Renovate. Only one version is shipped per image.
 
 ### Test webserver
 The image runs an "echo-server" as the entrypoint on port 80/TCP for testing use cases. Any requests will responds with the headers and body send in the request.
+
+### Logs collector
+- `rancher2_logs_collector.sh` is bundled at `/usr/local/bin/`.
 
 ---
 
@@ -91,7 +102,7 @@ The image runs an "echo-server" as the entrypoint on port 80/TCP for testing use
    - Use `curl`, `wget`, or `telnet` to test service availability.
 
 3. **Kubernetes Troubleshooting**:
-   - Multiple versions of `kubectl` are included for compatibility with different Kubernetes clusters.
+   - A single pinned `kubectl` version (see `hack/make/deps.mk`) is included.
 
 4. **System Debugging**:
    - Utilize tools like `ps`, `ifconfig`, and `iptables` to debug issues at the OS level.
