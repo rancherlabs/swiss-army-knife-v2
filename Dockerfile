@@ -8,7 +8,7 @@ WORKDIR /app
 COPY main.go .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags "-static"' -o echo-server main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o echo-server main.go
 
 # Build stage for network tools that are not shipped in the BCI
 # repository. Building them from pinned upstream releases keeps the runtime
@@ -43,8 +43,11 @@ RUN set -eux; \
     ./configure --prefix=/usr --disable-shared; \
     make -j"$(nproc)"; \
     make install DESTDIR=/out; \
-    zypper -n clean -a; \
-    rm -rf /tmp/* /var/cache/zypp/*
+    mkdir -p /stage/usr/sbin /stage/usr/bin /stage/usr/share/bash-completion/completions; \
+    cp /out/usr/sbin/mtr /out/usr/sbin/mtr-packet /stage/usr/sbin/; \
+    cp /out/usr/bin/iperf3 /stage/usr/bin/; \
+    cp /out/usr/share/bash-completion/completions/mtr /stage/usr/share/bash-completion/completions/; \
+    strip --strip-unneeded /stage/usr/sbin/mtr /stage/usr/sbin/mtr-packet /stage/usr/bin/iperf3
 
 # Final stage
 FROM registry.suse.com/bci/bci-base:15.7
@@ -60,7 +63,8 @@ ARG KUBECTL_SUM_arm64
 # Update all packages to latest versions to fix known vulnerabilities.
 # Everything comes from the SLE_BCI repository that ships with the image. Its
 # URL is derived from the base image version, so no extra repository is needed.
-RUN zypper -n update -y && \
+RUN echo 'rpm.install.excludedocs = yes' >> /etc/zypp/zypp.conf && \
+    zypper -n update -y && \
     zypper -n install --no-recommends \
         curl \
         ca-certificates \
@@ -92,39 +96,42 @@ RUN zypper -n update -y && \
         netcat-openbsd \
         conntrack-tools && \
     zypper -n clean -a && \
-    rm -rf /tmp/* /var/tmp/* /var/cache/zypp/* /usr/share/doc/packages/*
+    rm -rf /tmp/* /var/tmp/* /var/cache/zypp/* /var/cache/ldconfig/aux-cache \
+           /var/log/* /usr/share/doc/* /usr/share/man/* /usr/share/info/* /usr/share/locale/*
 
 # Copy the compiled binary from builder stage
 COPY --from=builder /app/echo-server /usr/local/bin/
 
 # Copy the network tools built from source (not available in SLE-BCI)
-COPY --from=nettools /out/usr/sbin/mtr /usr/sbin/mtr
-COPY --from=nettools /out/usr/sbin/mtr-packet /usr/sbin/mtr-packet
-COPY --from=nettools /out/usr/bin/iperf3 /usr/bin/iperf3
-COPY --from=nettools /out/usr/share/bash-completion/completions/mtr /usr/share/bash-completion/completions/mtr
+COPY --from=nettools /stage/ /
 
-# Fail the build early if a package rename or repository change drops a tool
+# Download kubectl (version/checksum pinned via --build-arg, see deps.mk) and
+# set up completion, then fail the build early if a package rename or
+# repository change drops a required tool.
 RUN set -eux; \
-    for bin in curl jq ip ss tcpdump nmap socat strace tree vim lsof mtr mtr-packet iperf3; do \
+    if [ -z "${KUBECTL_VERSION}" ]; then \
+        KUBECTL_VERSION="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"; \
+    fi; \
+    case "${TARGETARCH}" in \
+        amd64) EXPECTED_SUM="${KUBECTL_SUM_amd64}" ;; \
+        arm64) EXPECTED_SUM="${KUBECTL_SUM_arm64}" ;; \
+        *)     EXPECTED_SUM="" ;; \
+    esac; \
+    curl -fsSLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl"; \
+    if [ -z "${EXPECTED_SUM}" ]; then \
+        EXPECTED_SUM="$(curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl.sha256")"; \
+    fi; \
+    echo "${EXPECTED_SUM}  kubectl" | sha256sum -c -; \
+    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl; \
+    rm -f kubectl; \
+    mkdir -p /root/.kube; \
+    kubectl completion bash > /etc/bash_completion.d/kubectl; \
+    for bin in curl jq ip ss tcpdump nmap socat strace tree vim lsof mtr mtr-packet iperf3 kubectl; do \
         command -v "${bin}" >/dev/null || { echo "missing required tool: ${bin}" >&2; exit 1; }; \
     done
 
-# Download kubectl and verify checksum
-RUN KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
-    curl -sLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
-    curl -sLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl.sha256" && \
-    echo "$(cat kubectl.sha256) kubectl" | sha256sum --check && \
-    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
-    rm kubectl*
-
 # Set working directory
 WORKDIR /root
-
-# Create .kube directory
-RUN mkdir /root/.kube
-
-# Setup kubectl autocompletion, aliases, and profiles
-RUN kubectl completion bash > /etc/bash_completion.d/kubectl
 
 # Add logs collector script
 ADD --chown=root:root --chmod=0755 \
