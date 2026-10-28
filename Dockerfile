@@ -109,13 +109,25 @@ RUN set -eux; \
         command -v "${bin}" >/dev/null || { echo "missing required tool: ${bin}" >&2; exit 1; }; \
     done
 
-# Download kubectl and verify checksum
-RUN KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt) && \
-    curl -sLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
-    curl -sLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl.sha256" && \
-    echo "$(cat kubectl.sha256) kubectl" | sha256sum --check && \
-    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
-    rm kubectl*
+# Download kubectl and verify checksum. Prefer the version/checksum passed via
+# --build-arg (see hack/make/deps.mk); fall back to upstream stable and its
+# published sha256 when building without those arguments.
+RUN set -eux; \
+    if [ -z "${KUBECTL_VERSION}" ]; then \
+        KUBECTL_VERSION="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"; \
+    fi; \
+    case "${TARGETARCH}" in \
+        amd64) EXPECTED_SUM="${KUBECTL_SUM_amd64}" ;; \
+        arm64) EXPECTED_SUM="${KUBECTL_SUM_arm64}" ;; \
+        *)     EXPECTED_SUM="" ;; \
+    esac; \
+    curl -fsSLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl"; \
+    if [ -z "${EXPECTED_SUM}" ]; then \
+        EXPECTED_SUM="$(curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl.sha256")"; \
+    fi; \
+    echo "${EXPECTED_SUM}  kubectl" | sha256sum -c -; \
+    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl; \
+    rm -f kubectl
 
 # Set working directory
 WORKDIR /root
