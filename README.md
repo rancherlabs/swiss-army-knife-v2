@@ -100,4 +100,53 @@ The image runs an "echo-server" as the entrypoint on port 80/TCP for testing use
 
 This container is your one-stop shop for debugging and testing in production environments. It eliminates the need to install extra tools during critical times, ensuring you are always prepared.
 
+---
+
+## Building locally
+
+```sh
+# Multi-arch build (saved to ci/multiarch-image.oci)
+make build-validate
+
+# Build and load for the current platform only
+make build-image
+
+# Override the tag (defaults to the git tag on HEAD, or the commit SHA when untagged)
+make build-image TAG=v0.0.0-dev
+```
+
+The `VERSION` and `TAG` values are derived from `scripts/version` (the git tag on
+HEAD, falling back to the commit SHA plus a `-dirty` suffix).
+
+## Releasing
+
+Images are published to Docker Hub as `rancherlabs/swiss-army-knife` (the image
+name keeps the original `swiss-army-knife` name even though the repository is
+`swiss-army-knife-v2`).
+
+### Tags
+- `:latest` — the most recent **stable** (published) release. Never an RC.
+- `:vX.Y.Z` — immutable per-version tag.
+- `:vX.Y.Z-rcN` — release candidates, published to **GitHub only** (no registry
+  push).
+
+### Cutting a release
+1. Push a tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
+2. **Phase 1** of the `Release` workflow runs:
+   - Builds and pushes `rancherlabs/swiss-army-knife:vX.Y.Z` to Docker Hub via
+     `rancher/ecm-distro-tools/actions/publish-image` (skipped for `*-rc*` tags).
+   - Creates a **Draft** GitHub release with auto-generated notes (`--prerelease`
+     for RC tags).
+3. Test the published image (`docker pull rancherlabs/swiss-army-knife:vX.Y.Z`).
+4. Open the draft release in GitHub and click **Publish release**.
+5. **Phase 2** runs and re-points `:latest` at the versioned manifest (no rebuild;
+   identical digest).
+
+### Notes
+- The versioned tag is pushed exactly once and never overwritten; `:latest` is
+  just a pointer that moves to the published version.
+- Release candidates (and pre-release tags) are published to GitHub only and
+  never reach Docker Hub.
+- The workflow is defined in `.github/workflows/release.yml`.
+
 Happy debugging! 🚀
