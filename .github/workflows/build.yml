@@ -1,11 +1,16 @@
 name: Build and Validate
 
 on:
-  push:
-    branches:
-      - master
-      - main
   pull_request:
+    paths:
+      - 'Dockerfile'
+      - 'Makefile'
+      - 'hack/**'
+      - 'scripts/**'
+      - 'main.go'
+      - 'go.mod'
+      - 'go.sum'
+  workflow_dispatch:
 
 permissions:
   contents: read
