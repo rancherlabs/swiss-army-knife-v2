@@ -24,9 +24,6 @@ build-image: buildx-machine ## build (and load) the container image targeting th
 	$(IMAGE_BUILDER) build -f Dockerfile \
 		--builder $(MACHINE) $(IMAGE_ARGS) \
 		--build-arg VERSION=$(VERSION) \
-		--build-arg KUBECTL_VERSION=$(KUBECTL_VERSION) \
-		--build-arg KUBECTL_SUM_amd64=$(KUBECTL_SUM_amd64) \
-		--build-arg KUBECTL_SUM_arm64=$(KUBECTL_SUM_arm64) \
 		--platform=$(TARGET_PLATFORMS) -t "$(FULL_IMAGE_TAG)" $(BUILD_ACTION) .
 	@echo "Built $(FULL_IMAGE_TAG)"
 
@@ -35,9 +32,6 @@ build-validate: buildx-machine ## build (and load) the container image targeting
 	$(IMAGE_BUILDER) build -f Dockerfile \
 		--builder $(MACHINE) $(IMAGE_ARGS) \
 		--build-arg VERSION=$(VERSION) \
-		--build-arg KUBECTL_VERSION=$(KUBECTL_VERSION) \
-		--build-arg KUBECTL_SUM_amd64=$(KUBECTL_SUM_amd64) \
-		--build-arg KUBECTL_SUM_arm64=$(KUBECTL_SUM_arm64) \
 		--platform=$(TARGET_PLATFORMS) \
 		--output type=oci,dest=ci/multiarch-image.oci \
 		-t "$(FULL_IMAGE_TAG)" .
@@ -47,11 +41,14 @@ push-image: validate buildx-machine ## build the container image targeting all p
 	$(IMAGE_BUILDER) build -f Dockerfile \
 		--builder $(MACHINE) $(IMAGE_ARGS) $(IID_FILE_FLAG) $(BUILDX_ARGS) \
 		--build-arg VERSION=$(VERSION) \
-		--build-arg KUBECTL_VERSION=$(KUBECTL_VERSION) \
-		--build-arg KUBECTL_SUM_amd64=$(KUBECTL_SUM_amd64) \
-		--build-arg KUBECTL_SUM_arm64=$(KUBECTL_SUM_arm64) \
 		--platform=$(TARGET_PLATFORMS) -t "$(FULL_IMAGE_TAG)" --push .
 	@echo "Pushed $(FULL_IMAGE_TAG)"
+
+# prime-push-image is used by GitHub Actions to build the image pushed to the
+# Prime registry. It installs kubectl from the "prime" channel of rpm.rancher.io.
+.PHONY: prime-push-image
+prime-push-image: IMAGE_ARGS += --build-arg RPM_PKGS_CHANNEL=prime
+prime-push-image: push-image
 
 validate: validate-dirty ## Run validation checks.
 

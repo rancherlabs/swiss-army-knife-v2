@@ -67,7 +67,7 @@ jobs:
           prime-repo: ${{ env.REPO }}
           prime-username: ${{ env.PRIME_REGISTRY_USERNAME }}
           prime-password: ${{ env.PRIME_REGISTRY_PASSWORD }}
-          prime-make-target: push-image
+          prime-make-target: prime-push-image
 
       # Create a Draft release. Publishing (un-drafting) it in the UI is the
       # manual gate; it triggers the point-latest job below.
