@@ -55,11 +55,6 @@ FROM registry.suse.com/bci/bci-base:15.7
 # Use buildx automatic platform args
 ARG TARGETARCH
 
-# Kubectl dependency versions and checksums (set via --build-arg from Makefile/CI)
-ARG KUBECTL_VERSION
-ARG KUBECTL_SUM_amd64
-ARG KUBECTL_SUM_arm64
-
 # Update all packages to latest versions to fix known vulnerabilities.
 # Everything comes from the SLE_BCI repository that ships with the image. Its
 # URL is derived from the base image version, so no extra repository is needed.
@@ -94,7 +89,8 @@ RUN echo 'rpm.install.excludedocs = yes' >> /etc/zypp/zypp.conf && \
         iotop \
         nmap \
         netcat-openbsd \
-        conntrack-tools && \
+        conntrack-tools \
+        gpg2 && \
     zypper -n clean -a && \
     rm -rf /tmp/* /var/tmp/* /var/cache/zypp/* /var/cache/ldconfig/aux-cache \
            /var/log/* /usr/share/doc/* /usr/share/man/* /usr/share/info/* /usr/share/locale/*
@@ -105,25 +101,25 @@ COPY --from=builder /app/echo-server /usr/local/bin/
 # Copy the network tools built from source (not available in SLE-BCI)
 COPY --from=nettools /stage/ /
 
-# Download kubectl (version/checksum pinned via --build-arg, see deps.mk) and
-# set up completion, then fail the build early if a package rename or
-# repository change drops a required tool.
+# Install kubectl from the Rancher RPM repository. RPM_PKGS_CHANNEL is
+# "community" for public images and "prime" for Prime images; both channels are
+# signed with the same key, whose fingerprint is verified before import. The
+# repository is removed again after installation so the runtime image only
+# references SLE_BCI.
+ARG RPM_PKGS_CHANNEL=community
+ARG RANCHER_PKGS_GPG_FPR=BB0BB4C670D8BE8B200024014C37995C0B74252A
+ARG KUBECTL_MINOR=1.37
 RUN set -eux; \
-    if [ -z "${KUBECTL_VERSION}" ]; then \
-        KUBECTL_VERSION="$(curl -fsSL https://dl.k8s.io/release/stable.txt)"; \
-    fi; \
-    case "${TARGETARCH}" in \
-        amd64) EXPECTED_SUM="${KUBECTL_SUM_amd64}" ;; \
-        arm64) EXPECTED_SUM="${KUBECTL_SUM_arm64}" ;; \
-        *)     EXPECTED_SUM="" ;; \
-    esac; \
-    curl -fsSLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl"; \
-    if [ -z "${EXPECTED_SUM}" ]; then \
-        EXPECTED_SUM="$(curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl.sha256")"; \
-    fi; \
-    echo "${EXPECTED_SUM}  kubectl" | sha256sum -c -; \
-    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl; \
-    rm -f kubectl; \
+    curl -sfL -o /tmp/rancher-pkgs.key "https://rpm.rancher.io/pkgs/${RPM_PKGS_CHANNEL}/repodata/repomd.xml.key"; \
+    gpg --show-keys --with-colons /tmp/rancher-pkgs.key | grep -qx "fpr:::::::::${RANCHER_PKGS_GPG_FPR}:"; \
+    rpm --import /tmp/rancher-pkgs.key; \
+    rm -f /tmp/rancher-pkgs.key; \
+    zypper addrepo -f -c "https://rpm.rancher.io/pkgs/${RPM_PKGS_CHANNEL}" rancher-pkgs; \
+    zypper -n install --no-recommends "kubectl-${KUBECTL_MINOR}"; \
+    ln -s "/usr/bin/kubectl-${KUBECTL_MINOR}" /usr/local/bin/kubectl; \
+    zypper removerepo rancher-pkgs; \
+    zypper -n clean -a; \
+    rm -rf /tmp/* /var/tmp/* /var/cache/zypp/* /var/log/*; \
     mkdir -p /root/.kube; \
     kubectl completion bash > /etc/bash_completion.d/kubectl; \
     for bin in curl jq ip ss tcpdump nmap socat strace tree vim lsof mtr mtr-packet iperf3 kubectl; do \
