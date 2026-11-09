@@ -1,5 +1,5 @@
 # Build stage for Go application
-FROM golang:1.27-alpine@sha256:f2c872bcee949b7be9c490efd02b48a8a2fbf947cdf533f1c58525ec9d8170fd AS builder
+FROM registry.suse.com/bci/golang:1.27 AS builder
 
 # Set working directory for the build
 WORKDIR /app
