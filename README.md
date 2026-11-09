@@ -82,8 +82,9 @@ utilities from the SLE BCI base image):
 - `bash-completion`
 
 ### Kubernetes Tools
-- `kubectl` — pinned to the version in `hack/make/deps.mk` (currently v1.37.1),
-  updated via Renovate. Only one version is shipped per image.
+- `kubectl` — installed from the Rancher RPM repository (`kubectl-1.37` package,
+  minor version set by `KUBECTL_MINOR` in the `Dockerfile`). Only one version is
+  shipped per image.
 
 ### Test webserver
 The image runs an "echo-server" as the entrypoint on port 80/TCP for testing use cases. Any requests will responds with the headers and body send in the request.
@@ -102,7 +103,7 @@ The image runs an "echo-server" as the entrypoint on port 80/TCP for testing use
    - Use `curl`, `wget`, or `telnet` to test service availability.
 
 3. **Kubernetes Troubleshooting**:
-   - A single pinned `kubectl` version (see `hack/make/deps.mk`) is included.
+   - A single `kubectl` version (see `KUBECTL_MINOR` in the `Dockerfile`) is included.
 
 4. **System Debugging**:
    - Utilize tools like `ps`, `ifconfig`, and `iptables` to debug issues at the OS level.
