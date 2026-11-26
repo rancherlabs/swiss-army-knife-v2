@@ -51,7 +51,7 @@ jobs:
       # action handles registry login, buildx setup and the multi-arch push.
       - name: Push versioned image to registries
         if: ${{ !contains(github.ref_name, '-rc') }}
-        uses: rancher/ecm-distro-tools/actions/publish-image@b8127344173a5750da03068316ee40c547652c15  # v0.78.3
+        uses: rancher/ecm-distro-tools/actions/publish-image@c4025043b1e2af0a5a522f74b456b20f04e3d61e  # v0.78.5
         with:
           image: ${{ env.IMAGE }}
           tag: ${{ github.ref_name }}
